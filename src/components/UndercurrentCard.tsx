@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { MeshGradient } from '@paper-design/shaders-react';
 import { renderSummary } from '../utils/citationParser';
@@ -73,6 +73,18 @@ export const UndercurrentCard: React.FC<UndercurrentCardProps> = ({
             feedbackTimer.current = null;
         }
     };
+
+    // Clear timers on unmount to prevent memory leaks
+    useEffect(() => {
+        return () => {
+            if (longPressTimer.current) {
+                clearTimeout(longPressTimer.current);
+            }
+            if (feedbackTimer.current) {
+                clearTimeout(feedbackTimer.current);
+            }
+        };
+    }, []);
 
     return (
         <motion.div

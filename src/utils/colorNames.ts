@@ -1,6 +1,9 @@
 // Simple color naming utility based on ntc.js color matching
 // A lightweight implementation that doesn't require CommonJS
 
+// RGB tuple type
+type RGB = [number, number, number];
+
 // Basic color name database (subset of ntc.js colors for common colors)
 const COLOR_NAMES: [string, string][] = [
     ["000000", "Black"],
@@ -309,7 +312,7 @@ const COLOR_NAMES: [string, string][] = [
 ];
 
 // Convert hex to RGB
-function hexToRgb(hex: string): [number, number, number] {
+function hexToRgb(hex: string): RGB {
     const cleanHex = hex.replace('#', '').toUpperCase();
     const r = parseInt(cleanHex.substring(0, 2), 16);
     const g = parseInt(cleanHex.substring(2, 4), 16);
@@ -317,13 +320,22 @@ function hexToRgb(hex: string): [number, number, number] {
     return [r, g, b];
 }
 
-// Calculate color distance
-function colorDistance(rgb1: [number, number, number], rgb2: [number, number, number]): number {
-    return Math.sqrt(
-        Math.pow(rgb1[0] - rgb2[0], 2) +
-        Math.pow(rgb1[1] - rgb2[1], 2) +
-        Math.pow(rgb1[2] - rgb2[2], 2)
-    );
+// Pre-computed RGB values for all colors in the database
+// This avoids calling hexToRgb 309 times on every lookup
+const COLOR_DATA: { rgb: RGB; name: string }[] = COLOR_NAMES.map(([hex, name]) => ({
+    rgb: hexToRgb(hex),
+    name,
+}));
+
+// Cache for color name lookups to avoid repeated calculations
+const colorNameCache = new Map<string, string>();
+
+// Calculate color distance (squared to avoid sqrt for comparisons)
+function colorDistanceSquared(rgb1: RGB, rgb2: RGB): number {
+    const dr = rgb1[0] - rgb2[0];
+    const dg = rgb1[1] - rgb2[1];
+    const db = rgb1[2] - rgb2[2];
+    return dr * dr + dg * dg + db * db;
 }
 
 /**
@@ -332,14 +344,19 @@ function colorDistance(rgb1: [number, number, number], rgb2: [number, number, nu
  * @returns The color name
  */
 export function getColorName(hex: string): string {
-    const targetRgb = hexToRgb(hex);
+    const normalizedHex = hex.replace('#', '').toUpperCase();
+
+    // Check cache first
+    const cached = colorNameCache.get(normalizedHex);
+    if (cached) return cached;
+
+    const targetRgb = hexToRgb(normalizedHex);
 
     let closestName = "Unknown";
     let closestDistance = Infinity;
 
-    for (const [colorHex, name] of COLOR_NAMES) {
-        const rgb = hexToRgb(colorHex);
-        const distance = colorDistance(targetRgb, rgb);
+    for (const { rgb, name } of COLOR_DATA) {
+        const distance = colorDistanceSquared(targetRgb, rgb);
 
         if (distance < closestDistance) {
             closestDistance = distance;
@@ -349,6 +366,9 @@ export function getColorName(hex: string): string {
         // Exact match
         if (distance === 0) break;
     }
+
+    // Cache the result
+    colorNameCache.set(normalizedHex, closestName);
 
     return closestName;
 }
